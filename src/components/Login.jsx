@@ -1,8 +1,21 @@
 import React from 'react';
+import { auth, googleProvider, signInWithPopup } from '../firebase';
 
 function Login({ onLogin }) {
-  const handleMockLogin = () => {
-    onLogin({ name: 'Nhân viên 1', email: 'nhanvien@hocau.com' });
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      onLogin({ 
+        uid: user.uid,
+        name: user.displayName, 
+        email: user.email,
+        photoURL: user.photoURL
+      });
+    } catch (error) {
+      console.error("Login failed:", error);
+      alert("Đăng nhập thất bại. Vui lòng thử lại!");
+    }
   };
 
   return (
@@ -11,7 +24,7 @@ function Login({ onLogin }) {
         <h1 className="login-title">Hồ Câu Giải Trí</h1>
         <p className="login-subtitle">Phần mềm quản lý hồ câu</p>
         
-        <button className="btn btn-google" onClick={handleMockLogin}>
+        <button className="btn btn-google" onClick={handleGoogleLogin}>
           <svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>

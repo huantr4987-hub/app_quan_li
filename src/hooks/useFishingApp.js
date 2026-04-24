@@ -1,111 +1,186 @@
 import { useState, useEffect } from 'react';
+import { db, auth } from '../firebase';
+import { 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  onSnapshot 
+} from 'firebase/firestore';
 
 export function useFishingApp() {
   const [user, setUser] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [revenue, setRevenue] = useState(0);
-  
-  // New states
-  const [products, setProducts] = useState([
-    { id: 'p1', name: 'Nước suối', price: 10000, category: 'drink' },
-    { id: 'p2', name: 'Bò húc', price: 15000, category: 'drink' },
-    { id: 'p3', name: 'Mì tôm trứng', price: 20000, category: 'food' },
-    { id: 'p4', name: 'Mồi cá lóc', price: 30000, category: 'bait' },
-  ]);
+  const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [settings, setSettings] = useState({
-    fishBuybackName: 'Cá chung', // default fish name
-    fishBuybackPrice: 20000, // 20k/kg default
-    defaultPondPrice: 30000, // 30k/h default
+    fishBuybackName: 'Cá chung',
+    fishBuybackPrice: 20000,
+    defaultPondPrice: 30000,
   });
 
-  // Load from local storage
+  // Handle Authentication State
   useEffect(() => {
-    const loadState = (key, setter) => {
-      const saved = localStorage.getItem(key);
-      if (saved) setter(JSON.parse(saved));
-    };
-
-    loadState('fishing_user', setUser);
-    loadState('fishing_sessions', setSessions);
-    loadState('fishing_revenue', setRevenue);
-    loadState('fishing_products', setProducts);
-    loadState('fishing_customers', setCustomers);
-    loadState('fishing_settings', setSettings);
+    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+      if (firebaseUser) {
+        setUser({
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName,
+          email: firebaseUser.email,
+          photoURL: firebaseUser.photoURL
+        });
+      } else {
+        setUser(null);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
-  // Save to local storage whenever state changes
-  useEffect(() => { localStorage.setItem('fishing_sessions', JSON.stringify(sessions)); }, [sessions]);
-  useEffect(() => { localStorage.setItem('fishing_revenue', JSON.stringify(revenue)); }, [revenue]);
-  useEffect(() => { localStorage.setItem('fishing_products', JSON.stringify(products)); }, [products]);
-  useEffect(() => { localStorage.setItem('fishing_customers', JSON.stringify(customers)); }, [customers]);
-  useEffect(() => { localStorage.setItem('fishing_settings', JSON.stringify(settings)); }, [settings]);
+  // Real-time Data Sync (when user is logged in)
+  useEffect(() => {
+    if (!user) {
+      setSessions([]);
+      setProducts([]);
+      setCustomers([]);
+      return;
+    }
+
+    const uid = user.uid;
+
+    // Sync Sessions
+    const qSessions = query(collection(db, 'sessions'), where('ownerId', '==', uid));
+    const unsubSessions = onSnapshot(qSessions, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      setSessions(data);
+      // Calculate revenue from completed sessions
+      const totalRevenue = data
+        .filter(s => s.status === 'completed')
+        .reduce((sum, s) => sum + (s.finalTotal || 0), 0);
+      setRevenue(totalRevenue);
+    });
+
+    // Sync Products
+    const qProducts = query(collection(db, 'products'), where('ownerId', '==', uid));
+    const unsubProducts = onSnapshot(qProducts, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      if (data.length === 0) {
+        // Initial products if empty
+        const initialProducts = [
+          { name: 'Nước suối', price: 10000, category: 'drink', ownerId: uid },
+          { name: 'Bò húc', price: 15000, category: 'drink', ownerId: uid },
+          { name: 'Mì tôm trứng', price: 20000, category: 'food', ownerId: uid },
+          { name: 'Mồi cá lóc', price: 30000, category: 'bait', ownerId: uid },
+        ];
+        initialProducts.forEach(p => addProduct(p));
+      } else {
+        setProducts(data);
+      }
+    });
+
+    // Sync Customers
+    const qCustomers = query(collection(db, 'customers'), where('ownerId', '==', uid));
+    const unsubCustomers = onSnapshot(qCustomers, (snapshot) => {
+      setCustomers(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
+    });
+
+    // Sync Settings
+    const unsubSettings = onSnapshot(doc(db, 'settings', uid), (docSnap) => {
+      if (docSnap.exists()) {
+        setSettings(docSnap.data());
+      } else {
+        // Create default settings if not exists
+        const defaultSettings = {
+          fishBuybackName: 'Cá chung',
+          fishBuybackPrice: 20000,
+          defaultPondPrice: 30000,
+          ownerId: uid
+        };
+        setDoc(doc(db, 'settings', uid), defaultSettings);
+      }
+    });
+
+    return () => {
+      unsubSessions();
+      unsubProducts();
+      unsubCustomers();
+      unsubSettings();
+    };
+  }, [user]);
 
   const login = (userData) => {
-    setUser(userData);
-    localStorage.setItem('fishing_user', JSON.stringify(userData));
+    // handled by onAuthStateChanged
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('fishing_user');
+  const logout = async () => {
+    await auth.signOut();
   };
 
   // --- Session Management ---
-  const createSession = (sessionData) => {
+  const createSession = async (sessionData) => {
     const newSession = {
       ...sessionData,
-      id: Date.now().toString(),
-      status: 'active', // active, completed
+      ownerId: user.uid,
+      status: 'active',
       startTime: Date.now(),
       additionalFees: 0,
       fishWeight: 0,
       fishSoldBack: 0,
       foodItems: [],
-      addedTime: 0, // hours added later
+      addedTime: 0,
     };
-    setSessions([...sessions, newSession]);
-    return newSession;
+    const docRef = doc(collection(db, 'sessions'));
+    await setDoc(docRef, newSession);
+    return { ...newSession, id: docRef.id };
   };
 
-  const updateSession = (id, updates) => {
-    setSessions(sessions.map(s => s.id === id ? { ...s, ...updates } : s));
+  const updateSession = async (id, updates) => {
+    await updateDoc(doc(db, 'sessions', id), updates);
   };
 
-  const completeSession = (id, finalAmount) => {
-    setSessions(sessions.map(s => s.id === id ? { ...s, status: 'completed', endTime: Date.now(), finalTotal: finalAmount } : s));
-    setRevenue(prev => prev + finalAmount);
+  const completeSession = async (id, finalAmount) => {
+    await updateDoc(doc(db, 'sessions', id), {
+      status: 'completed',
+      endTime: Date.now(),
+      finalTotal: finalAmount
+    });
   };
 
   // --- Product Management ---
-  const addProduct = (product) => {
-    setProducts([...products, { ...product, id: Date.now().toString() }]);
+  const addProduct = async (product) => {
+    const docRef = doc(collection(db, 'products'));
+    await setDoc(docRef, { ...product, ownerId: user.uid });
   };
 
-  const updateProduct = (id, updates) => {
-    setProducts(products.map(p => p.id === id ? { ...p, ...updates } : p));
+  const updateProduct = async (id, updates) => {
+    await updateDoc(doc(db, 'products', id), updates);
   };
 
-  const removeProduct = (id) => {
-    setProducts(products.filter(p => p.id !== id));
+  const removeProduct = async (id) => {
+    await deleteDoc(doc(db, 'products', id));
   };
 
   // --- Customer Management ---
-  const saveCustomer = (customerData) => {
+  const saveCustomer = async (customerData) => {
     const existing = customers.find(c => c.phone === customerData.phone);
     if (existing) {
-      setCustomers(customers.map(c => c.phone === customerData.phone ? { ...c, ...customerData } : c));
+      await updateDoc(doc(db, 'customers', existing.id), customerData);
       return existing.id;
     } else {
-      const newId = Date.now().toString();
-      setCustomers([...customers, { ...customerData, id: newId }]);
-      return newId;
+      const docRef = doc(collection(db, 'customers'));
+      await setDoc(docRef, { ...customerData, ownerId: user.uid });
+      return docRef.id;
     }
   };
 
   // --- Settings Management ---
-  const updateSettings = (newSettings) => {
-    setSettings({ ...settings, ...newSettings });
+  const updateSettings = async (newSettings) => {
+    await setDoc(doc(db, 'settings', user.uid), { ...newSettings, ownerId: user.uid });
   };
 
   return {
