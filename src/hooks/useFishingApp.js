@@ -169,7 +169,7 @@ export function useFishingApp() {
   const saveCustomer = async (customerData) => {
     const existing = customers.find(c => c.phone === customerData.phone);
     if (existing) {
-      await updateDoc(doc(db, 'customers', existing.id), customerData);
+      await updateDoc(doc(db, 'customers', existing.id), { name: customerData.name });
       return existing.id;
     } else {
       const docRef = doc(collection(db, 'customers'));

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogOut, PlusCircle, Clock, CheckCircle, TrendingUp, Fish, LayoutGrid, ClipboardList, Users, History, ShoppingBag, Trash2, Edit } from 'lucide-react';
+import { LogOut, PlusCircle, Clock, CheckCircle, TrendingUp, Fish, LayoutGrid, ClipboardList, Users, History, ShoppingBag, Trash2, Edit, BarChart3, Calendar, DollarSign, PieChart } from 'lucide-react';
 
 function Dashboard({ appState, onNavigate }) {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -24,6 +24,12 @@ function Dashboard({ appState, onNavigate }) {
   const completedSessions = appState.sessions.filter(s => s.status === 'completed');
 
   const todayRevenue = completedSessions.reduce((sum, s) => sum + (s.finalTotal || 0), 0);
+  const totalTickets = completedSessions.reduce((sum, s) => sum + (s.basePrice + (s.additionalFees || 0)), 0);
+  const totalFoodRevenue = completedSessions.reduce((sum, s) => {
+    const foodTotal = s.foodItems?.reduce((fSum, f) => fSum + f.price, 0) || 0;
+    return sum + foodTotal;
+  }, 0);
+  
   // Calculate cost based on weight * buyback price
   const fishCost = completedSessions.reduce((sum, s) => sum + (s.fishWeight * appState.settings.fishBuybackPrice), 0);
   const noFishSessions = completedSessions.filter(s => !s.fishWeight || s.fishWeight === 0).length;
@@ -228,29 +234,73 @@ function Dashboard({ appState, onNavigate }) {
         </div>
       )}
       
-      {activeTab === 'history' && (
-         <div className="dashboard-content-area">
+      {activeTab === 'reports' && (
+        <div className="dashboard-content-area">
           <div className="header">
             <div>
-              <h2>Lịch Sử Giao Dịch</h2>
+              <h2>Báo Cáo Chi Tiết</h2>
+              <p className="subtitle">Thống kê doanh thu & lợi nhuận</p>
             </div>
           </div>
-          <div className="tab-content" style={{padding: '0 16px'}}>
-            <div className="session-list mt-4">
-              {completedSessions.map(session => (
-                <div key={session.id} className="session-card completed" style={{flexDirection: 'column', alignItems: 'flex-start'}}>
-                  <div style={{display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: '8px'}}>
-                    <h4 style={{margin: 0}}>Bill #{session.id.slice(-4)}</h4>
-                    <span className="text-sm" style={{color: 'var(--success-color)', fontWeight: 'bold'}}>+{session.finalTotal?.toLocaleString('vi-VN')}đ</span>
+          
+          <div className="tab-content" style={{padding: '0 16px', marginTop: '16px', paddingBottom: '80px'}}>
+            <div className="stat-card-large" style={{background: 'linear-gradient(135deg, #0f342b 0%, #1a4a3d 100%)', color: 'white'}}>
+              <div className="label" style={{color: 'rgba(255,255,255,0.7)'}}>TỔNG DOANH THU (HÔM NAY)</div>
+              <div className="value" style={{color: 'var(--gold-color)'}}>{todayRevenue.toLocaleString('vi-VN')}đ</div>
+              <div className="subtext" style={{color: 'rgba(255,255,255,0.5)'}}>Cập nhật: {new Date().toLocaleTimeString('vi-VN')}</div>
+            </div>
+
+            <div className="section mt-4">
+              <h3 style={{color: 'white', marginBottom: '16px'}}><PieChart size={18} className="inline-icon"/> Phân bổ nguồn thu</h3>
+              <div className="form-card" style={{padding: '20px'}}>
+                <div className="report-row">
+                  <div className="report-item">
+                    <span className="dot gold"></span>
+                    <span className="label">Tiền vé câu:</span>
+                    <span className="val">{totalTickets.toLocaleString('vi-VN')}đ</span>
                   </div>
-                  <div className="text-sm" style={{color: '#64748b'}}>{new Date(session.endTime).toLocaleString('vi-VN')}</div>
-                  {session.fishWeight > 0 && (
-                    <div className="text-sm text-red mt-2">
-                      Đã mua lại {session.fishWeight}kg cá (-{(session.fishWeight * appState.settings.fishBuybackPrice).toLocaleString('vi-VN')}đ)
-                    </div>
-                  )}
+                  <div className="progress-bar"><div className="fill gold" style={{width: `${(totalTickets/todayRevenue)*100}%`}}></div></div>
                 </div>
-              ))}
+                
+                <div className="report-row mt-3">
+                  <div className="report-item">
+                    <span className="dot green"></span>
+                    <span className="label">Tiền dịch vụ:</span>
+                    <span className="val">{totalFoodRevenue.toLocaleString('vi-VN')}đ</span>
+                  </div>
+                  <div className="progress-bar"><div className="fill green" style={{width: `${(totalFoodRevenue/todayRevenue)*100}%`}}></div></div>
+                </div>
+
+                <div className="report-row mt-3">
+                  <div className="report-item">
+                    <span className="dot red"></span>
+                    <span className="label">Chi phí thu cá:</span>
+                    <span className="val">-{fishCost.toLocaleString('vi-VN')}đ</span>
+                  </div>
+                  <div className="progress-bar"><div className="fill red" style={{width: '100%', opacity: 0.3}}></div></div>
+                </div>
+                
+                <hr style={{margin: '20px 0', border: 'none', borderTop: '1px dashed #ddd'}} />
+                
+                <div className="report-item total">
+                  <span className="label">Lợi nhuận ròng:</span>
+                  <span className="val text-lg font-bold" style={{color: 'var(--success-color)'}}>{netProfit.toLocaleString('vi-VN')}đ</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="section mt-4">
+              <h3 style={{color: 'white', marginBottom: '16px'}}><BarChart3 size={18} className="inline-icon"/> Thống kê nhanh</h3>
+              <div className="stats-grid">
+                <div className="stat-card-small">
+                  <div className="stat-label-small">Số ca câu</div>
+                  <div className="stat-value-small" style={{color: '#333'}}>{completedSessions.length}</div>
+                </div>
+                <div className="stat-card-small">
+                  <div className="stat-label-small">Lượng cá thu</div>
+                  <div className="stat-value-small" style={{color: '#333'}}>{completedSessions.reduce((sum, s) => sum + (s.fishWeight || 0), 0).toFixed(1)}kg</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -259,18 +309,23 @@ function Dashboard({ appState, onNavigate }) {
       <div className="bottom-nav">
         <button className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
           <LayoutGrid size={24} />
+          <span className="nav-label">Chính</span>
         </button>
         <button className={`nav-item ${activeTab === 'sessions' ? 'active' : ''}`} onClick={() => setActiveTab('sessions')}>
           <ClipboardList size={24} />
+          <span className="nav-label">Ca Câu</span>
+        </button>
+        <button className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`} onClick={() => setActiveTab('reports')}>
+          <BarChart3 size={24} />
+          <span className="nav-label">Báo Cáo</span>
         </button>
         <button className={`nav-item ${activeTab === 'catalog' ? 'active' : ''}`} onClick={() => setActiveTab('catalog')}>
           <ShoppingBag size={24} />
-        </button>
-        <button className={`nav-item ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>
-          <Users size={24} />
+          <span className="nav-label">Dịch Vụ</span>
         </button>
         <button className={`nav-item ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>
           <History size={24} />
+          <span className="nav-label">Lịch Sử</span>
         </button>
       </div>
     </div>

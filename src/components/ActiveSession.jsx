@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Clock, AlertTriangle, CheckSquare } from 'lucide-react';
+import { ArrowLeft, Plus, Clock, AlertTriangle, CheckCircle2, ChevronRight } from 'lucide-react';
 
 function ActiveSession({ session, appState, onNavigate }) {
   const [timeLeft, setTimeLeft] = useState(0);
@@ -14,7 +14,6 @@ function ActiveSession({ session, appState, onNavigate }) {
 
       if (difference > 0) {
         setTimeLeft(difference);
-        // Warning when less than 15 mins (900000 ms)
         setIsWarning(difference <= 900000);
       } else {
         setTimeLeft(0);
@@ -62,43 +61,47 @@ function ActiveSession({ session, appState, onNavigate }) {
   };
 
   return (
-    <div className="active-session">
+    <div className="active-session-view">
       <header className="header-nav">
         <button className="btn-icon" onClick={() => onNavigate('dashboard')}>
           <ArrowLeft size={24} />
         </button>
-        <h2>Phiên Câu #{session.id.slice(-4)} {session.customerPhone && `(${session.customerPhone})`}</h2>
+        <div className="text-center flex-1">
+          <h2 style={{fontSize: '1rem'}}>Phiên #{session.id.slice(-4)}</h2>
+          <p className="subtitle" style={{color: 'white', fontSize: '0.75rem'}}>{session.customerName || session.customerPhone || 'Khách vãng lai'}</p>
+        </div>
+        <div style={{width: 40}}></div>
       </header>
 
       <div className="content">
-        <div className={`timer-card ${isWarning ? 'warning' : ''}`}>
-          <h3>Thời gian còn lại</h3>
+        <div className={`timer-card glass ${isWarning ? 'warning' : ''}`}>
+          <p className="timer-label">THỜI GIAN CÒN LẠI</p>
           <div className="timer-display">
-            {isWarning && <AlertTriangle className="warning-icon" size={32} />}
-            {formatTime(timeLeft)}
+            {isWarning && timeLeft > 0 && <AlertTriangle className="warning-icon" size={24} />}
+            <span className={timeLeft === 0 ? 'text-red' : ''}>{formatTime(timeLeft)}</span>
           </div>
           {isWarning && timeLeft > 0 && <p className="warning-text">Sắp hết giờ!</p>}
           {timeLeft === 0 && <p className="danger-text">Đã hết giờ câu!</p>}
         </div>
 
         <div className="action-grid mt-4">
-          <button className="action-btn" onClick={handleExtend}>
-            <Clock size={24} />
-            <span>Gia hạn giờ</span>
+          <button className="action-btn glass" onClick={handleExtend}>
+            <Clock size={24} className="text-gold" />
+            <span>Gia hạn</span>
           </button>
-          <button className="action-btn" onClick={() => setShowAddFood(!showAddFood)}>
-            <Plus size={24} />
-            <span>Thêm đồ ăn</span>
+          <button className="action-btn glass" onClick={() => setShowAddFood(!showAddFood)}>
+            <Plus size={24} className="text-green" />
+            <span>Thêm đồ</span>
           </button>
-          <button className="action-btn primary" onClick={() => onNavigate('checkout', session.id)}>
-            <CheckSquare size={24} />
-            <span>Thanh toán</span>
+          <button className="action-btn primary gold-btn" onClick={() => onNavigate('checkout', session.id)}>
+            <CheckCircle2 size={24} />
+            <span>Kết thúc</span>
           </button>
         </div>
 
         {showAddFood && (
-          <div className="form-card mt-4">
-            <h3>Chọn Sản Phẩm / Dịch Vụ</h3>
+          <div className="form-card highlight-card mt-4">
+            <h3 className="section-title">Thêm Dịch Vụ</h3>
             <div className="form-group">
               <select 
                 className="input-field" 
@@ -111,32 +114,38 @@ function ActiveSession({ session, appState, onNavigate }) {
                 ))}
               </select>
             </div>
-            <button className="btn btn-primary btn-block" onClick={handleAddProduct}>Thêm vào bill</button>
+            <button className="btn btn-primary btn-block" onClick={handleAddProduct}>Xác nhận thêm</button>
           </div>
         )}
 
-        <div className="session-details mt-4">
-          <h3>Chi tiết hóa đơn tạm tính</h3>
-          <ul className="item-list">
+        <div className="session-details-card glass mt-4">
+          <h3 className="section-title p-4 pb-0">Chi tiết tạm tính</h3>
+          <ul className="item-list px-4 pb-4">
             <li>
-              <span>Vé câu ({session.durationHours - (session.addedTime || 0)}h)</span>
-              <span>{session.basePrice.toLocaleString('vi-VN')} đ</span>
+              <div className="item-info">
+                <span className="item-name">Vé câu ({session.durationHours - (session.addedTime || 0)}h)</span>
+              </div>
+              <span className="item-price">{session.basePrice.toLocaleString('vi-VN')} đ</span>
             </li>
             {session.additionalFees > 0 && (
               <li>
-                <span>Phí gia hạn ({session.addedTime}h)</span>
-                <span>{session.additionalFees.toLocaleString('vi-VN')} đ</span>
+                <div className="item-info">
+                  <span className="item-name">Phí gia hạn ({session.addedTime}h)</span>
+                </div>
+                <span className="item-price">{session.additionalFees.toLocaleString('vi-VN')} đ</span>
               </li>
             )}
             {session.foodItems?.map(item => (
               <li key={item.id}>
-                <span>{item.name}</span>
-                <span>{item.price.toLocaleString('vi-VN')} đ</span>
+                <div className="item-info">
+                  <span className="item-name">{item.name}</span>
+                </div>
+                <span className="item-price">{item.price.toLocaleString('vi-VN')} đ</span>
               </li>
             ))}
-            <li className="font-bold highlight-row">
-              <span>Đã thu (Tạm ứng)</span>
-              <span>- {session.initialCollected.toLocaleString('vi-VN')} đ</span>
+            <li className="total-row-lite">
+              <span>Đã tạm ứng</span>
+              <span className="text-gold">-{session.initialCollected.toLocaleString('vi-VN')} đ</span>
             </li>
           </ul>
         </div>
