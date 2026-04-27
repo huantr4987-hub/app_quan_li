@@ -5,6 +5,7 @@ import Dashboard from './components/Dashboard';
 import CreateSession from './components/CreateSession';
 import ActiveSession from './components/ActiveSession';
 import Checkout from './components/Checkout';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   const appState = useFishingApp();
@@ -22,10 +23,18 @@ function App() {
 
   return (
     <div className="app-container">
+      <Toaster position="top-center" toastOptions={{ duration: 3000, style: { fontSize: '0.9rem', borderRadius: '12px' } }} />
       {currentView === 'dashboard' && (
         <Dashboard 
           appState={appState} 
           onNavigate={navigateTo} 
+        />
+      )}
+      {(currentView === 'reports' || currentView === 'catalog' || currentView === 'customers' || currentView === 'settings' || currentView === 'active_list') && (
+        <Dashboard 
+          appState={appState} 
+          onNavigate={navigateTo} 
+          initialTab={currentView === 'active_list' ? 'sessions' : currentView}
         />
       )}
       {currentView === 'create' && (

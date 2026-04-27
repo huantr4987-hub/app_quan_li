@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Printer, CheckCircle, Bluetooth } from 'lucide-react';
+import { ArrowLeft, Printer, CheckCircle, Bluetooth, Loader2 } from 'lucide-react';
 import { printer } from '../utils/printer';
+import toast from 'react-hot-toast';
 
 function Checkout({ session, appState, onNavigate }) {
   const [fishWeight, setFishWeight] = useState(session.fishWeight || 0);
   const [shouldPrint, setShouldPrint] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [printerConnected, setPrinterConnected] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fishSoldBack = fishWeight * appState.settings.fishBuybackPrice;
   const totalFood = session.foodItems?.reduce((sum, item) => sum + item.price, 0) || 0;
@@ -17,52 +19,67 @@ function Checkout({ session, appState, onNavigate }) {
 
   const handleConnectPrinter = async () => {
     setIsConnecting(true);
+    const tId = toast.loading("Đang kết nối máy in Bluetooth...");
     try {
       await printer.connect();
       setPrinterConnected(true);
-      alert("Đã kết nối máy in Bluetooth!");
+      toast.success("Đã kết nối máy in Bluetooth!", { id: tId });
     } catch (error) {
-      alert("Không thể kết nối máy in.");
+      toast.error("Không thể kết nối máy in.", { id: tId });
     } finally {
       setIsConnecting(false);
     }
   };
 
   const handleComplete = async () => {
-    // Update fish weight and sold back before completing
-    await appState.updateSession(session.id, { fishWeight, fishSoldBack });
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    const tId = toast.loading("Đang hoàn tất thanh toán...");
     
-    const finalRevenue = totalCost - fishSoldBack;
-    await appState.completeSession(session.id, finalRevenue);
-    
-    if (shouldPrint) {
-      if (printerConnected) {
-        try {
-          await printer.printReceipt({
-            title: "HỒ CÂU GIẢI TRÍ",
-            subtitle: "HÓA ĐƠN THANH TOÁN",
-            rows: [
-              { label: "Bill ID:", value: `#${session.id.slice(-4)}` },
-              { label: "Khách:", value: session.customerName || "N/A" },
-              { label: "Vé câu:", value: session.basePrice.toLocaleString() },
-              { label: "Gia hạn:", value: (session.additionalFees || 0).toLocaleString() },
-              { label: "Dịch vụ:", value: totalFood.toLocaleString() },
-              { label: "Trừ cá:", value: `-${fishSoldBack.toLocaleString()}` },
-              { label: "Tạm ứng:", value: `-${session.initialCollected.toLocaleString()}` }
-            ],
-            totalLabel: isReturnMoney ? "THỐI LẠI:" : "THU THÊM:",
-            totalValue: Math.abs(amountDue).toLocaleString('vi-VN') + "đ",
-            footer: "Cảm ơn quý khách. Hẹn gặp lại!"
-          });
-        } catch (e) {
+    try {
+      // Update fish weight and sold back before completing
+      await appState.updateSession(session.id, { fishWeight, fishSoldBack });
+      
+      const finalRevenue = totalCost - fishSoldBack;
+      await appState.completeSession(session.id, finalRevenue);
+      
+      if (shouldPrint) {
+        if (printerConnected) {
+          try {
+            await printer.printReceipt({
+              title: "HỒ CÂU GIẢI TRÍ",
+              subtitle: "HÓA ĐƠN THANH TOÁN",
+              rows: [
+                { label: "Bill ID:", value: `#${session.id.slice(-4)}` },
+                { label: "Khách:", value: session.customerName || "N/A" },
+                { label: "Vé câu:", value: session.basePrice.toLocaleString() },
+                { label: "Gia hạn:", value: (session.additionalFees || 0).toLocaleString() },
+                { label: "Dịch vụ:", value: totalFood.toLocaleString() },
+                { label: "Trừ cá:", value: `-${fishSoldBack.toLocaleString()}` },
+                { label: "Tạm ứng:", value: `-${session.initialCollected.toLocaleString()}` }
+              ],
+              totalLabel: isReturnMoney ? "THỐI LẠI:" : "THU THÊM:",
+              totalValue: Math.abs(amountDue).toLocaleString('vi-VN') + "đ",
+              footer: "Cảm ơn quý khách. Hẹn gặp lại!"
+            });
+            toast.success("Đã thanh toán và in hóa đơn!", { id: tId });
+          } catch (e) {
+            toast.success("Đã thanh toán! Đang mở giao diện in...", { id: tId });
+            window.print();
+          }
+        } else {
+          toast.success("Đã thanh toán! Đang mở giao diện in...", { id: tId });
           window.print();
         }
       } else {
-        window.print();
+        toast.success("Thanh toán hoàn tất!", { id: tId });
       }
+      
+      onNavigate('dashboard');
+    } catch (err) {
+      toast.error("Có lỗi xảy ra khi thanh toán!", { id: tId });
+      setIsSubmitting(false);
     }
-    
-    onNavigate('dashboard');
   };
 
   return (

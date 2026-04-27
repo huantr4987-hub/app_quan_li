@@ -19,6 +19,7 @@ export function useFishingApp() {
   const [revenue, setRevenue] = useState(0);
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]); // Admin only
   const [settings, setSettings] = useState({
     fishBuybackName: 'Cá chung',
     fishBuybackPrice: 20000,
@@ -29,12 +30,21 @@ export function useFishingApp() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
       if (firebaseUser) {
-        setUser({
+        const isAdmin = firebaseUser.email === 'huantr87@gmail.com';
+        const userData = {
           uid: firebaseUser.uid,
           name: firebaseUser.displayName,
           email: firebaseUser.email,
-          photoURL: firebaseUser.photoURL
-        });
+          photoURL: firebaseUser.photoURL,
+          isAdmin: isAdmin
+        };
+        setUser(userData);
+        
+        // Save user to Firestore for admin tracking
+        setDoc(doc(db, 'users', firebaseUser.uid), {
+          ...userData,
+          lastLogin: Date.now()
+        }, { merge: true }).catch(console.error);
       } else {
         setUser(null);
       }
@@ -42,28 +52,37 @@ export function useFishingApp() {
     return () => unsubscribe();
   }, []);
 
-  // Real-time Data Sync (when user is logged in)
+  // Real-time Data Sync
   useEffect(() => {
     if (!user) {
       setSessions([]);
       setProducts([]);
       setCustomers([]);
+      setAllUsers([]);
       return;
     }
 
     const uid = user.uid;
+    const isAdmin = user.isAdmin;
 
-    // Sync Sessions
-    const qSessions = query(collection(db, 'sessions'), where('ownerId', '==', uid));
+    // Sync Sessions (Admin sees all, normal sees own)
+    const qSessions = isAdmin ? query(collection(db, 'sessions')) : query(collection(db, 'sessions'), where('ownerId', '==', uid));
     const unsubSessions = onSnapshot(qSessions, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       setSessions(data);
-      // Calculate revenue from completed sessions
       const totalRevenue = data
         .filter(s => s.status === 'completed')
         .reduce((sum, s) => sum + (s.finalTotal || 0), 0);
       setRevenue(totalRevenue);
     });
+
+    // If Admin, sync all users
+    let unsubUsers = () => {};
+    if (isAdmin) {
+      unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+        setAllUsers(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })));
+      });
+    }
 
     // Sync Products
     const qProducts = query(collection(db, 'products'), where('ownerId', '==', uid));
@@ -107,6 +126,7 @@ export function useFishingApp() {
 
     return () => {
       unsubSessions();
+      unsubUsers();
       unsubProducts();
       unsubCustomers();
       unsubSettings();
@@ -131,7 +151,7 @@ export function useFishingApp() {
       additionalFees: 0,
       fishWeight: 0,
       fishSoldBack: 0,
-      foodItems: [],
+      foodItems: sessionData.foodItems || [],
       addedTime: 0,
     };
     const docRef = doc(collection(db, 'sessions'));
@@ -190,6 +210,7 @@ export function useFishingApp() {
     products,
     customers,
     settings,
+    allUsers, // Added allUsers for admin
     login,
     logout,
     createSession,

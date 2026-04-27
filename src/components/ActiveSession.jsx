@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Plus, Clock, AlertTriangle, CheckCircle2, ChevronRight } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 function ActiveSession({ session, appState, onNavigate }) {
   const [timeLeft, setTimeLeft] = useState(0);
@@ -39,11 +40,17 @@ function ActiveSession({ session, appState, onNavigate }) {
     const product = appState.products.find(p => p.id === selectedProductId);
     if (!product) return;
 
-    const newFoodItem = { name: product.name, price: product.price, id: Date.now() };
-    const updatedFoods = [...(session.foodItems || []), newFoodItem];
-    appState.updateSession(session.id, { foodItems: updatedFoods });
-    setSelectedProductId('');
-    setShowAddFood(false);
+    const tId = toast.loading(`Đang thêm ${product.name}...`);
+    try {
+      const newFoodItem = { name: product.name, price: product.price, id: Date.now() };
+      const updatedFoods = [...(session.foodItems || []), newFoodItem];
+      appState.updateSession(session.id, { foodItems: updatedFoods });
+      setSelectedProductId('');
+      setShowAddFood(false);
+      toast.success(`Đã thêm ${product.name}!`, { id: tId });
+    } catch (err) {
+      toast.error("Lỗi khi thêm đồ ăn/uống!", { id: tId });
+    }
   };
 
   const handleExtend = () => {
@@ -53,11 +60,17 @@ function ActiveSession({ session, appState, onNavigate }) {
     const extraPrice = parseFloat(prompt(`Nhập số tiền cho ${extraHours} giờ:`, defaultPrice.toString()));
     if (isNaN(extraPrice) || extraPrice < 0) return;
 
-    appState.updateSession(session.id, {
-      durationHours: session.durationHours + extraHours,
-      addedTime: (session.addedTime || 0) + extraHours,
-      additionalFees: (session.additionalFees || 0) + extraPrice
-    });
+    const tId = toast.loading("Đang gia hạn thời gian...");
+    try {
+      appState.updateSession(session.id, {
+        durationHours: session.durationHours + extraHours,
+        addedTime: (session.addedTime || 0) + extraHours,
+        additionalFees: (session.additionalFees || 0) + extraPrice
+      });
+      toast.success(`Đã gia hạn thêm ${extraHours} tiếng!`, { id: tId });
+    } catch (err) {
+      toast.error("Lỗi khi gia hạn!", { id: tId });
+    }
   };
 
   return (
