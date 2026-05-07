@@ -2,12 +2,17 @@ import React, { useState } from 'react';
 import { 
   TrendingUp, Fish, LayoutGrid, ClipboardList, ShoppingBag, 
   Users, BarChart3, PlusCircle, Clock, ChevronRight, 
-  Package, Receipt, ArrowRightLeft, Settings, LogOut 
+  Package, Receipt, ArrowRightLeft, Settings, LogOut,
+  Eye, X, Loader2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 function Dashboard({ appState, onNavigate, initialTab = 'dashboard' }) {
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [selectedUser, setSelectedUser] = useState(null);   // user object đang xem
+  const [userData, setUserData] = useState(null);           // dữ liệu của user đó
+  const [userDataTab, setUserDataTab] = useState('sessions'); // tab trong modal
+  const [loadingUser, setLoadingUser] = useState(false);    // trạng thái loading
   const [timeFilter, setTimeFilter] = useState('today');
   
   // Catalog state
@@ -229,23 +234,37 @@ function Dashboard({ appState, onNavigate, initialTab = 'dashboard' }) {
             
             {appState.allUsers?.map(u => (
               <div key={u.id} className="list-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {u.photoURL ? (
-                    <img src={u.photoURL} alt="avatar" style={{ width: 32, height: 32, borderRadius: '50%' }} />
-                  ) : (
-                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Users size={16} />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {u.photoURL ? (
+                      <img src={u.photoURL} alt="avatar" style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid #e2e8f0' }} />
+                    ) : (
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Users size={16} />
+                      </div>
+                    )}
+                    <div>
+                      <div className="list-item-label" style={{ color: u.isAdmin ? '#ef4444' : 'var(--text-main)' }}>
+                        {u.name || 'Chưa cập nhật'} {u.isAdmin && '👑'}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.email}</div>
                     </div>
-                  )}
-                  <div>
-                    <div className="list-item-label" style={{ color: u.isAdmin ? '#ef4444' : 'var(--text-main)' }}>
-                      {u.name || 'Chưa cập nhật'} {u.isAdmin && '(Admin)'}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.email}</div>
                   </div>
+                  <button
+                    onClick={() => handleViewUserData(u)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '4px',
+                      background: 'var(--primary-color)', color: 'white',
+                      border: 'none', borderRadius: '8px', padding: '6px 12px',
+                      fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <Eye size={14} /> Xem dữ liệu
+                  </button>
                 </div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', width: '100%' }}>
-                  Last Login: {u.lastLogin ? new Date(u.lastLogin).toLocaleString('vi-VN') : 'N/A'}
+                  Đăng nhập lần cuối: {u.lastLogin ? new Date(u.lastLogin).toLocaleString('vi-VN') : 'N/A'}
                 </div>
               </div>
             ))}
@@ -254,6 +273,17 @@ function Dashboard({ appState, onNavigate, initialTab = 'dashboard' }) {
       default:
         return null;
     }
+  };
+
+  // Handler: Admin xem dữ liệu của một user cụ thể
+  const handleViewUserData = async (targetUser) => {
+    setSelectedUser(targetUser);
+    setUserData(null);
+    setUserDataTab('sessions');
+    setLoadingUser(true);
+    const data = await appState.fetchUserData(targetUser.id);
+    setUserData(data);
+    setLoadingUser(false);
   };
 
   return (
@@ -306,8 +336,168 @@ function Dashboard({ appState, onNavigate, initialTab = 'dashboard' }) {
           </button>
         )}
       </div>
+
+      {/* Modal: Xem dữ liệu của user được chọn */}
+      {selectedUser && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+          zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
+        }} onClick={() => setSelectedUser(null)}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'white', width: '100%', maxWidth: '480px',
+              borderRadius: '24px 24px 0 0', maxHeight: '85vh',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              boxShadow: '0 -8px 40px rgba(0,0,0,0.15)'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {selectedUser.photoURL ? (
+                  <img src={selectedUser.photoURL} alt="avatar" style={{ width: 36, height: 36, borderRadius: '50%' }} />
+                ) : (
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Users size={16} />
+                  </div>
+                )}
+                <div>
+                  <div style={{ fontWeight: '700', fontSize: '0.9rem', color: 'var(--text-main)' }}>{selectedUser.name || 'Chưa có tên'}</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{selectedUser.email}</div>
+                </div>
+              </div>
+              <button onClick={() => setSelectedUser(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                <X size={22} />
+              </button>
+            </div>
+
+            {/* Tab chọn loại dữ liệu */}
+            <div style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
+              {[
+                { key: 'sessions', label: '🎣 Ca câu' },
+                { key: 'products', label: '📦 Sản phẩm' },
+                { key: 'customers', label: '👥 Khách hàng' },
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => setUserDataTab(tab.key)}
+                  style={{
+                    flex: 1, padding: '10px 4px', border: 'none', background: 'none', cursor: 'pointer',
+                    fontSize: '0.75rem', fontWeight: userDataTab === tab.key ? '700' : '400',
+                    color: userDataTab === tab.key ? 'var(--primary-color)' : 'var(--text-muted)',
+                    borderBottom: userDataTab === tab.key ? '2px solid var(--primary-color)' : '2px solid transparent',
+                  }}
+                >{tab.label}</button>
+              ))}
+            </div>
+
+            {/* Nội dung */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+              {loadingUser ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  <Loader2 size={28} style={{ animation: 'spin 1s linear infinite' }} />
+                </div>
+              ) : userData === null ? (
+                <div style={{ textAlign: 'center', color: '#ef4444', padding: '20px', fontSize: '0.85rem' }}>Không thể tải dữ liệu.</div>
+              ) : (
+                <>
+                  {/* Tab: Ca câu */}
+                  {userDataTab === 'sessions' && (
+                    userData.sessions.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px', fontSize: '0.85rem' }}>Chưa có ca câu nào.</div>
+                    ) : (
+                      userData.sessions.slice().reverse().map(s => (
+                        <div key={s.id} style={{ background: '#f8fafc', borderRadius: '12px', padding: '12px', marginBottom: '10px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ fontWeight: '600', fontSize: '0.85rem', color: 'var(--text-main)' }}>{s.customerName || 'Khách vãng lai'}</div>
+                            <span style={{
+                              fontSize: '0.7rem', padding: '2px 8px', borderRadius: '20px', fontWeight: '600',
+                              background: s.status === 'completed' ? '#dcfce7' : '#fef3c7',
+                              color: s.status === 'completed' ? '#16a34a' : '#d97706'
+                            }}>{s.status === 'completed' ? 'Hoàn tất' : 'Đang chạy'}</span>
+                          </div>
+                          <div style={{ marginTop: '6px', fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', gap: '12px' }}>
+                            <span>🕐 {new Date(s.startTime).toLocaleString('vi-VN')}</span>
+                            {s.finalTotal && <span style={{ color: 'var(--primary-color)', fontWeight: '700' }}>💰 {s.finalTotal.toLocaleString('vi-VN')}đ</span>}
+                          </div>
+                        </div>
+                      ))
+                    )
+                  )}
+
+                  {/* Tab: Sản phẩm */}
+                  {userDataTab === 'products' && (
+                    userData.products.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px', fontSize: '0.85rem' }}>Chưa có sản phẩm nào.</div>
+                    ) : (
+                      userData.products.map(p => (
+                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', borderRadius: '12px', padding: '12px', marginBottom: '8px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <ShoppingBag size={16} color="var(--primary-color)" />
+                            <span style={{ fontSize: '0.85rem', fontWeight: '500' }}>{p.name}</span>
+                          </div>
+                          <span style={{ fontWeight: '700', color: 'var(--primary-color)', fontSize: '0.85rem' }}>{p.price?.toLocaleString('vi-VN')}đ</span>
+                        </div>
+                      ))
+                    )
+                  )}
+
+                  {/* Tab: Khách hàng */}
+                  {userDataTab === 'customers' && (
+                    userData.customers.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px', fontSize: '0.85rem' }}>Chưa có khách hàng nào.</div>
+                    ) : (
+                      userData.customers.map(c => (
+                        <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f8fafc', borderRadius: '12px', padding: '12px', marginBottom: '8px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Users size={14} color="#0284c7" />
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: '600', fontSize: '0.85rem' }}>{c.name || 'Không có tên'}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{c.phone || 'Không có SĐT'}</div>
+                          </div>
+                        </div>
+                      ))
+                    )
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Footer thống kê nhanh */}
+            {userData && !loadingUser && (
+              <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '8px', background: '#f8fafc' }}>
+                <div style={{ flex: 1, textAlign: 'center', background: 'white', borderRadius: '10px', padding: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--primary-color)' }}>{userData.sessions.length}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Ca câu</div>
+                </div>
+                <div style={{ flex: 1, textAlign: 'center', background: 'white', borderRadius: '10px', padding: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: '700', color: '#0284c7' }}>{userData.products.length}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Sản phẩm</div>
+                </div>
+                <div style={{ flex: 1, textAlign: 'center', background: 'white', borderRadius: '10px', padding: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: '700', color: '#7c3aed' }}>{userData.customers.length}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Khách hàng</div>
+                </div>
+                <div style={{ flex: 1, textAlign: 'center', background: 'white', borderRadius: '10px', padding: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#16a34a' }}>
+                    {(userData.sessions.filter(s => s.status === 'completed').reduce((sum, s) => sum + (s.finalTotal || 0), 0) / 1000).toFixed(0)}k
+                  </div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Doanh thu</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
 
 export default Dashboard;
+

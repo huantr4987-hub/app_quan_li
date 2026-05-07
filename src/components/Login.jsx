@@ -21,8 +21,15 @@ function Login({ onLogin }) {
   return (
     <div className="login-container">
       <div className="login-card">
-        <h1 className="login-title">Hồ Câu Giải Trí</h1>
-        <p className="login-subtitle">Phần mềm quản lý hồ câu</p>
+        <span className="free-badge">MIỄN PHÍ</span>
+        
+        <div className="login-header">
+          <div className="logo-container">
+            <img src="/logo.png" alt="Logo Hồ Câu" className="login-logo" />
+          </div>
+          <h1 className="login-title">Hồ Câu Giải Trí</h1>
+          <p className="login-subtitle">Phần mềm quản lý chuyên nghiệp</p>
+        </div>
         
         <button className="btn btn-google" onClick={handleGoogleLogin}>
           <svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
@@ -33,6 +40,14 @@ function Login({ onLogin }) {
           </svg>
           Đăng nhập bằng Google
         </button>
+
+        <div className="support-info">
+          <p>Hỗ trợ & Góp ý (Zalo/Hotline):</p>
+          <a href="tel:0855550813" className="support-phone">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+            085 555 0813
+          </a>
+        </div>
       </div>
     </div>
   );

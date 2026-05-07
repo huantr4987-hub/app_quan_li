@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { db, auth } from '../firebase';
 import { 
   collection, 
@@ -203,6 +203,28 @@ export function useFishingApp() {
     await setDoc(doc(db, 'settings', user.uid), { ...newSettings, ownerId: user.uid });
   };
 
+  // --- Admin: Fetch data of a specific user ---
+  const fetchUserData = useCallback(async (targetUserId) => {
+    if (!user?.isAdmin) return null;
+    try {
+      const [sessionsSnap, productsSnap, customersSnap, settingsSnap] = await Promise.all([
+        getDocs(query(collection(db, 'sessions'), where('ownerId', '==', targetUserId))),
+        getDocs(query(collection(db, 'products'), where('ownerId', '==', targetUserId))),
+        getDocs(query(collection(db, 'customers'), where('ownerId', '==', targetUserId))),
+        getDoc(doc(db, 'settings', targetUserId)),
+      ]);
+      return {
+        sessions: sessionsSnap.docs.map(d => ({ ...d.data(), id: d.id })),
+        products: productsSnap.docs.map(d => ({ ...d.data(), id: d.id })),
+        customers: customersSnap.docs.map(d => ({ ...d.data(), id: d.id })),
+        settings: settingsSnap.exists() ? settingsSnap.data() : null,
+      };
+    } catch (err) {
+      console.error('fetchUserData error:', err);
+      return null;
+    }
+  }, [user]);
+
   return {
     user,
     sessions,
@@ -220,6 +242,7 @@ export function useFishingApp() {
     updateProduct,
     removeProduct,
     saveCustomer,
-    updateSettings
+    updateSettings,
+    fetchUserData,
   };
 }

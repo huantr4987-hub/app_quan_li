@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useFishingApp } from './hooks/useFishingApp';
 import Login from './components/Login';
+import LandingPage from './components/LandingPage';
 import Dashboard from './components/Dashboard';
 import CreateSession from './components/CreateSession';
 import ActiveSession from './components/ActiveSession';
@@ -9,11 +10,13 @@ import { Toaster } from 'react-hot-toast';
 
 function App() {
   const appState = useFishingApp();
-  const [currentView, setCurrentView] = useState('dashboard'); // dashboard, create, active, checkout
+  const [currentView, setCurrentView] = useState('dashboard');
   const [activeSessionId, setActiveSessionId] = useState(null);
+  const [showLogin, setShowLogin] = useState(false);
 
   if (!appState.user) {
-    return <Login onLogin={appState.login} />;
+    if (showLogin) return <Login onLogin={appState.login} />;
+    return <LandingPage onGetStarted={() => setShowLogin(true)} />;
   }
 
   const navigateTo = (view, sessionId = null) => {
